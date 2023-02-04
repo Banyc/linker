@@ -6,21 +6,21 @@ pub mod models;
 
 pub fn resolve<'name, S, ST>(
     section_table: &mut ST,
-    new_section_table: ST,
+    other_section_table: ST,
     symbol_table: &mut ResolvedSymbolTable<'name, S>,
-    new_symbol_table: SymbolTable<'name, S>,
+    other_symbol_table: SymbolTable<'name, S>,
     relocation_table: &mut Vec<ResolvedRelocation<S>>,
-    new_relocation_table: Vec<Relocation<S>>,
+    other_relocation_table: Vec<Relocation<S>>,
 ) -> Result<(), ResolveError>
 where
     S: SectionIndex,
     ST: LoadableSectionTable,
 {
-    let mut resolved_symbols = HashMap::with_capacity(new_symbol_table.len());
+    let mut resolved_symbols = HashMap::with_capacity(other_symbol_table.len());
 
     // Resolve relocations
-    for reference in new_relocation_table.into_iter() {
-        let symbol = new_symbol_table.get(reference.symbol);
+    for reference in other_relocation_table.into_iter() {
+        let symbol = other_symbol_table.get(reference.symbol);
 
         // Update symbol offset and store the symbol
         let new_symbol = match resolved_symbols.get(&reference.symbol) {
@@ -43,7 +43,7 @@ where
     }
 
     // Resolve symbols
-    for (index, symbol) in new_symbol_table.into_iter() {
+    for (index, symbol) in other_symbol_table.into_iter() {
         // Skip if already resolved
         if resolved_symbols.contains_key(&index) {
             continue;
@@ -54,7 +54,7 @@ where
     }
 
     // Merge section tables
-    section_table.merge(new_section_table);
+    section_table.merge(other_section_table);
 
     Ok(())
 }
