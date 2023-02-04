@@ -129,6 +129,9 @@ where
     return Ok(new_symbol_index);
 }
 
+/// # Panic
+///
+/// Panics if some symbols in `symbol_table` are not defined
 pub fn relocate<S>(
     reference: &ResolvedRelocation<S>,
     symbols: &ResolvedSymbolTable<S>,
