@@ -5,7 +5,7 @@ where
     S: SectionIndex,
 {
     pub offset: usize,
-    
+
     /// The section that the relocation is _for_.
     pub section: S,
 

@@ -6,9 +6,7 @@ where
     S: SectionIndex,
 {
     pub name: &'name str,
-    pub section: SymbolSection<S>,
-    pub offset: usize,
-    pub size: usize,
+    pub value: SymbolValue<S>,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -47,10 +45,20 @@ where
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum SymbolSection<S>
+pub enum SymbolValue<S>
 where
     S: SectionIndex,
 {
     Undefined,
-    Defined(S),
+    Defined(SymbolDefinition<S>),
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct SymbolDefinition<S>
+where
+    S: SectionIndex,
+{
+    pub section: S,
+    pub offset: usize,
+    pub size: usize,
 }

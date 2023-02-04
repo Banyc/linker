@@ -77,22 +77,26 @@ where
     let new_symbol_index = match existing_symbol_index {
         Some(existing_symbol_index) => {
             let existing_symbol = symbol_table.get(existing_symbol_index);
-            let section = match (existing_symbol.section, symbol.section) {
-                (SymbolSection::Undefined, SymbolSection::Undefined) => {
+            let definition = match (existing_symbol.value, symbol.value) {
+                (SymbolValue::Undefined, SymbolValue::Undefined) => {
                     return Ok(existing_symbol_index)
                 }
-                (SymbolSection::Undefined, SymbolSection::Defined(section)) => section,
-                (SymbolSection::Defined(_), SymbolSection::Undefined) => {
+                (SymbolValue::Undefined, SymbolValue::Defined(definition)) => definition,
+                (SymbolValue::Defined { .. }, SymbolValue::Undefined) => {
                     return Ok(existing_symbol_index)
                 }
-                (SymbolSection::Defined(_), SymbolSection::Defined(_)) => {
+                (SymbolValue::Defined { .. }, SymbolValue::Defined { .. }) => {
                     return Err(ResolveError::ConflictSymbols)
                 }
             };
 
             // Replace the existing symbol
+            let new_offset = section_table.len(definition.section) + definition.offset;
             let new_symbol = Symbol {
-                offset: section_table.len(section) + symbol.offset,
+                value: SymbolValue::Defined(SymbolDefinition {
+                    offset: new_offset,
+                    ..definition
+                }),
                 ..*symbol
             };
             symbol_table.replace(existing_symbol_index, new_symbol);
@@ -100,12 +104,18 @@ where
         }
         None => {
             // Add the symbol to symbol table
-            let new_symbol = match symbol.section {
-                SymbolSection::Undefined => *symbol,
-                SymbolSection::Defined(section) => Symbol {
-                    offset: section_table.len(section) + symbol.offset,
-                    ..*symbol
-                },
+            let new_symbol = match symbol.value {
+                SymbolValue::Undefined => *symbol,
+                SymbolValue::Defined(definition) => {
+                    let new_offset = section_table.len(definition.section) + definition.offset;
+                    Symbol {
+                        value: SymbolValue::Defined(SymbolDefinition {
+                            offset: new_offset,
+                            ..definition
+                        }),
+                        ..*symbol
+                    }
+                }
             };
             let new_symbol_index = symbol_table.add(new_symbol);
             new_symbol_index
@@ -125,17 +135,21 @@ where
     S: SectionIndex,
 {
     let symbol = symbols.get(reference.symbol);
+    let SymbolValue::Defined(definition) = symbol.value else {
+        panic!("Symbol is not defined");
+    };
+    let offset = definition.offset;
 
     let new_reference_value = match reference.typ {
         RelocationType::PcRelative => {
             let new_ref_address = reference.offset + new_ref_section_address;
-            let new_symbol_address = symbol.offset + new_symbol_section_address;
+            let new_symbol_address = offset + new_symbol_section_address;
             let relative_new_symbol_address =
                 Wrapping(new_symbol_address) - Wrapping(new_ref_address);
             relative_new_symbol_address.0
         }
         RelocationType::Absolute => {
-            let new_symbol_address = symbol.offset + new_symbol_section_address;
+            let new_symbol_address = offset + new_symbol_section_address;
             new_symbol_address
         }
     };
