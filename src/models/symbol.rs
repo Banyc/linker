@@ -1,11 +1,12 @@
 use super::SectionIndex;
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Symbol<'name, S>
 where
     S: SectionIndex,
 {
     pub name: &'name str,
-    pub section: S,
+    pub section: SymbolSection<S>,
     pub offset: usize,
     pub size: usize,
 }
@@ -31,6 +32,9 @@ where
     pub fn get(&self, index: SymbolIndex) -> &Symbol<'name, S> {
         &self.0[index.0]
     }
+    pub fn replace(&mut self, index: SymbolIndex, symbol: Symbol<'name, S>) {
+        self.0[index.0] = symbol;
+    }
     pub fn len(&self) -> usize {
         self.0.len()
     }
@@ -40,4 +44,13 @@ where
             .enumerate()
             .map(|(index, symbol)| (SymbolIndex(index), symbol))
     }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum SymbolSection<S>
+where
+    S: SectionIndex,
+{
+    Undefined,
+    Defined(S),
 }
