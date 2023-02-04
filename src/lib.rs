@@ -1,6 +1,7 @@
 use std::{collections::HashMap, num::Wrapping, ops::Deref};
 
 use models::*;
+use thiserror::Error;
 
 pub mod models;
 
@@ -59,9 +60,10 @@ where
     Ok(())
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum ResolveError {
-    ConflictSymbols,
+    #[error("conflict `{symbol}` symbols")]
+    ConflictSymbols { symbol: String },
 }
 
 fn resolve_symbol<'name, S>(
@@ -82,11 +84,13 @@ where
                     return Ok(existing_symbol_index)
                 }
                 (SymbolValue::Undefined, SymbolValue::Defined(definition)) => definition,
-                (SymbolValue::Defined { .. }, SymbolValue::Undefined) => {
+                (SymbolValue::Defined(_), SymbolValue::Undefined) => {
                     return Ok(existing_symbol_index)
                 }
-                (SymbolValue::Defined { .. }, SymbolValue::Defined { .. }) => {
-                    return Err(ResolveError::ConflictSymbols)
+                (SymbolValue::Defined(_), SymbolValue::Defined(_)) => {
+                    return Err(ResolveError::ConflictSymbols {
+                        symbol: symbol.name.to_string(),
+                    })
                 }
             };
 
