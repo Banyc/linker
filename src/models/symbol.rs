@@ -10,7 +10,7 @@ where
     pub size: usize,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct SymbolIndex(usize);
 
 pub struct SymbolTable<'name, S>(Vec<Symbol<'name, S>>)
@@ -30,5 +30,14 @@ where
     }
     pub fn get(&self, index: SymbolIndex) -> &Symbol<'name, S> {
         &self.0[index.0]
+    }
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+    pub fn into_iter(self) -> impl Iterator<Item = (SymbolIndex, Symbol<'name, S>)> {
+        self.0
+            .into_iter()
+            .enumerate()
+            .map(|(index, symbol)| (SymbolIndex(index), symbol))
     }
 }
