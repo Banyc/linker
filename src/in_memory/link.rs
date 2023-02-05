@@ -1,13 +1,12 @@
 use thiserror::Error;
 
 use crate::core::{
-    models::ResolvingSymbolTable, relocate::relocate_reference,
-    resolve::resolve_unloadable_sections, RelocationError, ResolveError,
+    models::ResolvingSymbolTable, relocate_reference, resolve_unloadable_sections, RelocationError,
+    ResolveError,
 };
 
 use super::models::{
-    object::InMemoryRelocatableObject,
-    section::{InMemoryLoadableSectionTable, InMemorySectionIndex},
+    InMemoryLoadableSectionTable, InMemoryRelocatableObject, InMemorySectionIndex,
 };
 
 pub fn link(
@@ -73,7 +72,7 @@ mod tests {
         },
         in_memory::{
             link,
-            models::{object::InMemoryRelocatableObject, section::InMemoryLoadableSectionTable},
+            models::{InMemoryLoadableSectionTable, InMemoryRelocatableObject},
         },
     };
 

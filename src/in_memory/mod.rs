@@ -1,4 +1,4 @@
 pub use link::*;
 
-pub mod link;
+mod link;
 pub mod models;

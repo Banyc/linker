@@ -1,4 +1,5 @@
-use section::*;
+pub use object::*;
+pub use section::*;
 
-pub mod object;
-pub mod section;
+mod object;
+mod section;

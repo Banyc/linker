@@ -2,7 +2,7 @@ use std::num::Wrapping;
 
 use thiserror::Error;
 
-use super::{models::*, ResolvingRelocation};
+use super::models::*;
 
 pub fn relocate_reference<S>(
     reference: &ResolvingRelocation<S>,

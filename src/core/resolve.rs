@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use thiserror::Error;
 
-use super::{models::*, ResolvingRelocation, ResolvingSymbolTable};
+use super::models::*;
 
 pub fn resolve_unloadable_sections<'name, S, ST>(
     section_table: &ST,
