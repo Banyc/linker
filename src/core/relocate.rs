@@ -14,9 +14,12 @@ where
 {
     // Extract helpful information
     let reference_section = reference.section;
+    let symbol = symbol_table.get(reference.symbol);
     let SymbolValue::Defined(symbol_definition) =
-        symbol_table.get(reference.symbol).value else {
-            return Err(RelocationError::SymbolNotDefined);
+        symbol.value else {
+            return Err(RelocationError::SymbolNotDefined {
+                symbol: symbol.name.to_string()
+            });
         };
     let symbol_section = symbol_definition.section;
     let symbol_offset = symbol_definition.offset;
@@ -32,10 +35,10 @@ where
     Ok(new_reference_value)
 }
 
-#[derive(Debug, Error, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Error, PartialEq, Eq, Clone)]
 pub enum RelocationError {
-    #[error("Symbol not defined")]
-    SymbolNotDefined,
+    #[error("Symbol `{symbol}` not defined")]
+    SymbolNotDefined { symbol: String },
 }
 
 fn relocate_reference_<S>(
