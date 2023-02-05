@@ -311,7 +311,7 @@ mod tests {
         );
     }
 
-    fn main_o() -> InMemoryRelocatableObject {
+    fn main_o() -> InMemoryRelocatableObject<'static> {
         let mut section_table = InMemoryLoadableSectionTable::new();
         let mut symbol_table = SymbolTable::new();
         let mut references = Vec::new();
@@ -367,7 +367,7 @@ mod tests {
         }
     }
 
-    fn sum_o() -> InMemoryRelocatableObject {
+    fn sum_o() -> InMemoryRelocatableObject<'static> {
         let mut section_table = InMemoryLoadableSectionTable::new();
         let mut symbol_table = SymbolTable::new();
         let references = Vec::new();
