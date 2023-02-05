@@ -226,6 +226,9 @@ where
     }
 
     pub fn replace(&mut self, index: SymbolIndex, symbol: Symbol<'name, S>) {
+        let old_symbol = self.inner.get(index);
+        self.indices.remove(old_symbol.name);
+        self.indices.insert(symbol.name, index);
         self.inner.replace(index, symbol);
     }
 }

@@ -6,7 +6,7 @@ where
 {
     pub offset: usize,
 
-    /// The section that the relocation is _for_.
+    /// The section that the symbol reference is in.
     pub section: S,
 
     pub typ: RelocationType,
