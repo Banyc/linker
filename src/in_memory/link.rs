@@ -1,15 +1,19 @@
+use thiserror::Error;
+
 use crate::core::{
-    models::{LoadableSectionTable, ResolvingSymbolTable, SymbolValue},
-    relocate::relocate_reference,
-    resolve::resolve_unloadable_sections,
+    models::ResolvingSymbolTable, relocate::relocate_reference,
+    resolve::resolve_unloadable_sections, RelocationError, ResolveError,
 };
 
-use super::models::{object::InMemoryRelocatableObject, section::InMemoryLoadableSectionTable};
+use super::models::{
+    object::InMemoryRelocatableObject,
+    section::{InMemoryLoadableSectionTable, InMemorySectionIndex},
+};
 
 pub fn link(
     objects: Vec<InMemoryRelocatableObject>,
     address_len: usize,
-) -> InMemoryLoadableSectionTable {
+) -> Result<InMemoryLoadableSectionTable, LinkError> {
     let mut section_table = InMemoryLoadableSectionTable::new();
     let mut symbol_table = ResolvingSymbolTable::new();
     let mut references = Vec::new();
@@ -17,14 +21,13 @@ pub fn link(
     // Resolve objects
     for object in objects.into_iter() {
         // Resolve unloadable sections
-        let res = resolve_unloadable_sections(
+        resolve_unloadable_sections(
             &mut section_table,
             &mut symbol_table,
             object.symbol_table,
             &mut references,
             object.references,
-        );
-        assert!(res.is_ok());
+        )?;
 
         // Merge loadable sections
         section_table.merge(object.section_table);
@@ -32,23 +35,34 @@ pub fn link(
 
     // Relocate references
     for reference in references {
-        let reference_section = reference.section;
-        let SymbolValue::Defined(symbol_definition) = symbol_table.get(reference.symbol).value else {
-                panic!("Symbol is not defined");
-            };
-        let symbol_section = symbol_definition.section;
-        let new_reference_value = relocate_reference(
-            &reference,
-            &symbol_table,
-            section_table.address(symbol_section),
-            section_table.address(reference_section),
-        );
+        // Calculate new reference value
+        let new_reference_value = relocate_reference(&reference, &symbol_table, &section_table)?;
+
+        // Update the reference value in the corresponding section
         section_table.section_mut(reference.section)
             [reference.offset..reference.offset + address_len]
             .copy_from_slice(&new_reference_value.to_le_bytes()[..address_len]);
     }
 
-    section_table
+    Ok(section_table)
+}
+
+#[derive(Debug, Error, PartialEq, Eq, Clone)]
+pub enum LinkError {
+    #[error("Resolve error: {0}")]
+    ResolveError(ResolveError<InMemorySectionIndex>),
+    #[error("Relocation error: {0}")]
+    RelocationError(RelocationError),
+}
+impl From<ResolveError<InMemorySectionIndex>> for LinkError {
+    fn from(value: ResolveError<InMemorySectionIndex>) -> Self {
+        Self::ResolveError(value)
+    }
+}
+impl From<RelocationError> for LinkError {
+    fn from(value: RelocationError) -> Self {
+        Self::RelocationError(value)
+    }
 }
 
 #[cfg(test)]
@@ -70,7 +84,7 @@ mod tests {
         let objects = vec![main_o(), sum_o()];
 
         // Link
-        let section_table = link(objects, ADDRESS_LEN);
+        let section_table = link(objects, ADDRESS_LEN).unwrap();
 
         // Check result
         assert_eq!(
@@ -110,7 +124,7 @@ mod tests {
         let objects = vec![sum_o(), main_o()];
 
         // Link
-        let section_table = link(objects, ADDRESS_LEN);
+        let section_table = link(objects, ADDRESS_LEN).unwrap();
 
         // Check result
         assert_eq!(
