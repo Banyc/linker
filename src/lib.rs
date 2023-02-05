@@ -14,7 +14,7 @@ pub fn resolve_unloadable_sections<'name, S, ST>(
 ) -> Result<(), ResolveError>
 where
     S: SectionIndex,
-    ST: LoadableSectionTable,
+    ST: LoadableSectionTable<S>,
 {
     let mut resolved_symbols = HashMap::with_capacity(other_symbol_table.len());
 
@@ -63,7 +63,7 @@ pub enum ResolveError {
 }
 
 fn resolve_symbol<'name, S>(
-    section_table: &impl LoadableSectionTable,
+    section_table: &impl LoadableSectionTable<S>,
     symbol_table: &mut ResolvedSymbolTable<'name, S>,
     symbol: &Symbol<'name, S>,
 ) -> Result<SymbolIndex, ResolveError>
@@ -107,7 +107,7 @@ where
 }
 
 fn update_offset<'name, S>(
-    section_table: &impl LoadableSectionTable,
+    section_table: &impl LoadableSectionTable<S>,
     symbol: &Symbol<'name, S>,
 ) -> Symbol<'name, S>
 where
