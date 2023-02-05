@@ -1,3 +1,5 @@
+use crate::core::models::*;
+
 use super::*;
 
 pub struct InMemoryRelocatableObject<'name> {

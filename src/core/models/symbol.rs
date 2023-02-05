@@ -1,3 +1,5 @@
+use std::{collections::HashMap, ops::Deref};
+
 use super::SectionIndex;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -61,4 +63,57 @@ where
     pub section: S,
     pub offset: usize,
     pub size: usize,
+}
+
+pub struct ResolvingSymbolTable<'name, S>
+where
+    S: SectionIndex,
+{
+    inner: SymbolTable<'name, S>,
+    indices: HashMap<&'name str, SymbolIndex>,
+}
+impl<'name, S> Deref for ResolvingSymbolTable<'name, S>
+where
+    S: SectionIndex,
+{
+    type Target = SymbolTable<'name, S>;
+    fn deref(&self) -> &SymbolTable<'name, S> {
+        &self.inner
+    }
+}
+impl<'name, S> ResolvingSymbolTable<'name, S>
+where
+    S: SectionIndex,
+{
+    pub fn new() -> Self {
+        Self {
+            inner: SymbolTable::new(),
+            indices: HashMap::new(),
+        }
+    }
+
+    pub fn add(&mut self, symbol: Symbol<'name, S>) -> SymbolIndex {
+        let index = self.inner.add(symbol);
+        self.indices.insert(self.inner.get(index).name, index);
+        index
+    }
+
+    pub fn get(&self, index: SymbolIndex) -> &Symbol<'name, S> {
+        self.inner.get(index)
+    }
+
+    pub fn get_by_name(&self, name: &'name str) -> Option<&Symbol<'name, S>> {
+        self.indices.get(&name).map(|index| self.inner.get(*index))
+    }
+
+    pub fn get_index_by_name(&self, name: &'name str) -> Option<SymbolIndex> {
+        self.indices.get(&name).copied()
+    }
+
+    pub fn replace(&mut self, index: SymbolIndex, symbol: Symbol<'name, S>) {
+        let old_symbol = self.inner.get(index);
+        self.indices.remove(old_symbol.name);
+        self.indices.insert(symbol.name, index);
+        self.inner.replace(index, symbol);
+    }
 }
