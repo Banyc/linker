@@ -256,7 +256,7 @@ mod tests {
             );
             assert!(res.is_ok());
 
-            // Merge unloadable sections
+            // Merge loadable sections
             section_table.merge(object.section_table);
         }
 
