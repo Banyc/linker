@@ -14,10 +14,10 @@ pub struct InMemoryLoadableSectionTable {
 }
 impl LoadableSectionTable<InMemorySectionIndex> for InMemoryLoadableSectionTable {
     fn len(&self, index: InMemorySectionIndex) -> usize {
-        if index.0 >= self.sections.len() {
-            return 0;
+        match self.sections.get(index.0) {
+            Some(section) => section.len(),
+            None => 0,
         }
-        self.sections[index.0].len()
     }
     fn address(&self, index: InMemorySectionIndex) -> usize {
         let mut sum = 0;
