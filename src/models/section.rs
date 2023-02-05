@@ -24,6 +24,25 @@ impl LoadableSectionTable<InMemorySectionIndex> for InMemoryLoadableSectionTable
         sum
     }
 }
+impl InMemoryLoadableSectionTable {
+    pub fn new() -> Self {
+        Self { sections: vec![] }
+    }
+    pub fn add_section(&mut self, section: Vec<u8>) -> InMemorySectionIndex {
+        let index = self.sections.len();
+        self.sections.push(section);
+        InMemorySectionIndex(index)
+    }
+    pub fn merge(&mut self, other: Self) {
+        for (i, section) in other.sections.into_iter().enumerate() {
+            if i < self.sections.len() {
+                self.sections[i].extend(section);
+            } else {
+                self.sections.push(section);
+            }
+        }
+    }
+}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct InMemorySectionIndex(usize);
