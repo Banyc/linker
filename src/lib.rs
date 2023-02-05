@@ -242,38 +242,22 @@ mod tests {
         let mut symbol_table = ResolvedSymbolTable::new();
         let mut references = Vec::new();
 
-        // Resolve main.o
-        {
+        let objects = vec![main_o(), sum_o()];
+
+        // Resolve objects
+        for object in objects.into_iter() {
             // Resolve unloadable sections
-            let (other_section_table, other_symbol_table, other_references) = main_o();
             let res = resolve_unloadable_sections(
                 &mut section_table,
                 &mut symbol_table,
-                other_symbol_table,
+                object.symbol_table,
                 &mut references,
-                other_references,
+                object.references,
             );
             assert!(res.is_ok());
 
             // Merge unloadable sections
-            section_table.merge(other_section_table);
-        }
-
-        // Resolve sum.o
-        {
-            // Resolve unloadable sections
-            let (other_section_table, other_symbol_table, other_references) = sum_o();
-            let res = resolve_unloadable_sections(
-                &mut section_table,
-                &mut symbol_table,
-                other_symbol_table,
-                &mut references,
-                other_references,
-            );
-            assert!(res.is_ok());
-
-            // Merge unloadable sections
-            section_table.merge(other_section_table);
+            section_table.merge(object.section_table);
         }
 
         // Relocate references
@@ -327,11 +311,7 @@ mod tests {
         );
     }
 
-    fn main_o() -> (
-        InMemoryLoadableSectionTable,
-        SymbolTable<'static, InMemorySectionIndex>,
-        Vec<Relocation<InMemorySectionIndex>>,
-    ) {
+    fn main_o() -> InMemoryRelocatableObject {
         let mut section_table = InMemoryLoadableSectionTable::new();
         let mut symbol_table = SymbolTable::new();
         let mut references = Vec::new();
@@ -380,14 +360,14 @@ mod tests {
             section: text_section,
         });
 
-        (section_table, symbol_table, references)
+        InMemoryRelocatableObject {
+            section_table,
+            symbol_table,
+            references,
+        }
     }
 
-    fn sum_o() -> (
-        InMemoryLoadableSectionTable,
-        SymbolTable<'static, InMemorySectionIndex>,
-        Vec<Relocation<InMemorySectionIndex>>,
-    ) {
+    fn sum_o() -> InMemoryRelocatableObject {
         let mut section_table = InMemoryLoadableSectionTable::new();
         let mut symbol_table = SymbolTable::new();
         let references = Vec::new();
@@ -419,6 +399,10 @@ mod tests {
         // Add references
         // None
 
-        (section_table, symbol_table, references)
+        InMemoryRelocatableObject {
+            section_table,
+            symbol_table,
+            references,
+        }
     }
 }
