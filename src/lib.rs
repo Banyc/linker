@@ -228,3 +228,196 @@ where
         self.inner.replace(index, symbol);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const ADDRESS_LEN: usize = 4;
+
+    #[test]
+    fn ok() {
+        let mut section_table = InMemoryLoadableSectionTable::new();
+        let mut symbol_table = ResolvedSymbolTable::new();
+        let mut references = Vec::new();
+
+        // Resolve main.o
+        {
+            // Resolve unloadable sections
+            let (other_section_table, other_symbol_table, other_references) = main_o();
+            let res = resolve_unloadable_sections(
+                &mut section_table,
+                &mut symbol_table,
+                other_symbol_table,
+                &mut references,
+                other_references,
+            );
+            assert!(res.is_ok());
+
+            // Merge unloadable sections
+            section_table.merge(other_section_table);
+        }
+
+        // Resolve sum.o
+        {
+            // Resolve unloadable sections
+            let (other_section_table, other_symbol_table, other_references) = sum_o();
+            let res = resolve_unloadable_sections(
+                &mut section_table,
+                &mut symbol_table,
+                other_symbol_table,
+                &mut references,
+                other_references,
+            );
+            assert!(res.is_ok());
+
+            // Merge unloadable sections
+            section_table.merge(other_section_table);
+        }
+
+        // Relocate references
+        for reference in references {
+            let reference_section = reference.section;
+            let SymbolValue::Defined(symbol_definition) = symbol_table.get(reference.symbol).value else {
+                panic!("Symbol is not defined");
+            };
+            let symbol_section = symbol_definition.section;
+            let new_reference_value = relocate_reference(
+                &reference,
+                &symbol_table,
+                section_table.address(symbol_section),
+                section_table.address(reference_section),
+            );
+            section_table.section_mut(reference.section)
+                [reference.offset..reference.offset + ADDRESS_LEN]
+                .copy_from_slice(&new_reference_value.to_le_bytes()[..ADDRESS_LEN]);
+        }
+
+        // Check result
+        assert_eq!(
+            section_table.sections().nth(0).unwrap(),
+            &vec![
+                // 0000000000000000 <main>
+                0x48, 0x83, 0xec, 0x08, // sub rsp, 8
+                0xbe, 0x02, 0x00, 0x00, 0x00, // mov esi, 2
+                0xbf, 0x33, 0x00, 0x00, 0x00, // mov edi, array
+                0xe8, 0x05, 0x00, 0x00, 0x00, // call +9 <sum>
+                0x48, 0x83, 0xc4, 0x08, // add rsp, 8
+                0xc3, // ret
+                // 0000000000000018 <sum>
+                0xb8, 0x00, 0x00, 0x00, 0x00, // mov eax, 0
+                0xba, 0x00, 0x00, 0x00, 0x00, // mov edx, 0
+                0xeb, 0x09, // jmp +9
+                0x48, 0x63, 0xca, // movsxd rcx, edx
+                0x03, 0x04, 0x8f, // add eax, [rdi + rcx * 4]
+                0x83, 0xc2, 0x01, // add edx, 1
+                0x39, 0xf2, // cmp edx, esi
+                0x7c, 0xf3, // jl -13
+                0xf3, 0xc3, // rep ret
+            ]
+        );
+        assert_eq!(
+            section_table.sections().nth(1).unwrap(),
+            &vec![
+                // 0000000000000033 <array>
+                0x01, 0x00, 0x00, 0x00, // array: .int 1
+                0x02, 0x00, 0x00, 0x00, // .int 2
+            ]
+        );
+    }
+
+    fn main_o() -> (
+        InMemoryLoadableSectionTable,
+        SymbolTable<'static, InMemorySectionIndex>,
+        Vec<Relocation<InMemorySectionIndex>>,
+    ) {
+        let mut section_table = InMemoryLoadableSectionTable::new();
+        let mut symbol_table = SymbolTable::new();
+        let mut references = Vec::new();
+
+        // Add loadable sections
+        let text_section = section_table.add_section(vec![
+            0x48, 0x83, 0xec, 0x08, // sub rsp, 8
+            0xbe, 0x02, 0x00, 0x00, 0x00, // mov esi, 2
+            0xbf, 0x00, 0x00, 0x00, 0x00, // mov edi, array
+            0xe8, 0x00, 0x00, 0x00, 0x00, // call sum
+            0x48, 0x83, 0xc4, 0x08, // add rsp, 8
+            0xc3, // ret
+        ]);
+        let data_section = section_table.add_section(vec![
+            0x01, 0x00, 0x00, 0x00, // array: .int 1
+            0x02, 0x00, 0x00, 0x00, // .int 2
+        ]);
+
+        // Add symbols
+        let sum_symbol = symbol_table.add(Symbol {
+            name: "sum",
+            value: SymbolValue::Undefined,
+        });
+        let array_symbol = symbol_table.add(Symbol {
+            name: "array",
+            value: SymbolValue::Defined(SymbolDefinition {
+                section: data_section,
+                offset: 0,
+                size: 8,
+            }),
+        });
+
+        // Add references
+        references.push(Relocation {
+            offset: 0xf,
+            symbol: sum_symbol,
+            typ: RelocationType::PcRelative,
+            addend: -4,
+            section: text_section,
+        });
+        references.push(Relocation {
+            offset: 0xa,
+            symbol: array_symbol,
+            typ: RelocationType::Absolute,
+            addend: 0,
+            section: text_section,
+        });
+
+        (section_table, symbol_table, references)
+    }
+
+    fn sum_o() -> (
+        InMemoryLoadableSectionTable,
+        SymbolTable<'static, InMemorySectionIndex>,
+        Vec<Relocation<InMemorySectionIndex>>,
+    ) {
+        let mut section_table = InMemoryLoadableSectionTable::new();
+        let mut symbol_table = SymbolTable::new();
+        let references = Vec::new();
+
+        // Add loadable sections
+        let text_section = section_table.add_section(vec![
+            0xb8, 0x00, 0x00, 0x00, 0x00, // mov eax, 0
+            0xba, 0x00, 0x00, 0x00, 0x00, // mov edx, 0
+            0xeb, 0x09, // jmp +9
+            0x48, 0x63, 0xca, // movsxd rcx, edx
+            0x03, 0x04, 0x8f, // add eax, [rdi + rcx * 4]
+            0x83, 0xc2, 0x01, // add edx, 1
+            0x39, 0xf2, // cmp edx, esi
+            0x7c, 0xf3, // jl -13
+            0xf3, 0xc3, // rep ret
+        ]);
+        let _data_section = section_table.add_section(vec![]);
+
+        // Add symbols
+        let _sum_symbol = symbol_table.add(Symbol {
+            name: "sum",
+            value: SymbolValue::Defined(SymbolDefinition {
+                section: text_section,
+                offset: 0,
+                size: 0,
+            }),
+        });
+
+        // Add references
+        // None
+
+        (section_table, symbol_table, references)
+    }
+}

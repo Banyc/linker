@@ -14,6 +14,9 @@ pub struct InMemoryLoadableSectionTable {
 }
 impl LoadableSectionTable<InMemorySectionIndex> for InMemoryLoadableSectionTable {
     fn len(&self, index: InMemorySectionIndex) -> usize {
+        if index.0 >= self.sections.len() {
+            return 0;
+        }
         self.sections[index.0].len()
     }
     fn address(&self, index: InMemorySectionIndex) -> usize {
@@ -41,6 +44,12 @@ impl InMemoryLoadableSectionTable {
                 self.sections.push(section);
             }
         }
+    }
+    pub fn sections(&self) -> impl Iterator<Item = &Vec<u8>> {
+        self.sections.iter()
+    }
+    pub fn section_mut(&mut self, index: InMemorySectionIndex) -> &mut Vec<u8> {
+        &mut self.sections[index.0]
     }
 }
 
