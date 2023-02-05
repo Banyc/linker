@@ -11,26 +11,33 @@ pub fn resolve_unloadable_sections<'name, S, ST>(
     other_symbol_table: SymbolTable<'name, S>,
     relocation_table: &mut Vec<ResolvedRelocation<S>>,
     other_relocation_table: Vec<Relocation<S>>,
-) -> Result<(), ResolveError>
+) -> Result<(), ResolveError<S>>
 where
     S: SectionIndex,
     ST: LoadableSectionTable<S>,
 {
     let mut resolved_symbols = HashMap::with_capacity(other_symbol_table.len());
 
+    // Resolve symbols
+    for (index, symbol) in other_symbol_table.into_iter() {
+        // Update offset
+        let new_index = resolve_symbol(section_table, symbol_table, &symbol)?;
+
+        // Mark the symbol as resolved
+        resolved_symbols.insert(index, new_index);
+    }
+
     // Resolve relocations
     for reference in other_relocation_table.into_iter() {
-        let symbol = other_symbol_table.get(reference.symbol);
-
-        // Update symbol offset and store the symbol
-        let new_symbol = match resolved_symbols.get(&reference.symbol) {
-            Some(symbol) => *symbol,
-            None => resolve_symbol(section_table, symbol_table, symbol)?,
+        let Some(new_symbol) = resolved_symbols.get(&reference.symbol) else {
+            return Err(ResolveError::InvalidRelocation {
+                relocation: reference,
+            })
         };
 
         // Update relocation offset and symbol index
         let new_reference = ResolvedRelocation(Relocation {
-            symbol: new_symbol,
+            symbol: *new_symbol,
             offset: section_table.len(reference.section) + reference.offset,
             ..reference
         });
@@ -39,34 +46,28 @@ where
         relocation_table.push(new_reference);
 
         // Mark the symbol as resolved
-        resolved_symbols.insert(reference.symbol, new_symbol);
-    }
-
-    // Resolve symbols
-    for (index, symbol) in other_symbol_table.into_iter() {
-        // Skip if already resolved
-        if resolved_symbols.contains_key(&index) {
-            continue;
-        }
-
-        // Update offset
-        resolve_symbol(section_table, symbol_table, &symbol)?;
+        resolved_symbols.insert(reference.symbol, *new_symbol);
     }
 
     Ok(())
 }
 
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
-pub enum ResolveError {
+pub enum ResolveError<S>
+where
+    S: SectionIndex,
+{
     #[error("conflict `{symbol}` symbols")]
     ConflictSymbols { symbol: String },
+    #[error("invalid relocation")]
+    InvalidRelocation { relocation: Relocation<S> },
 }
 
 fn resolve_symbol<'name, S>(
     section_table: &impl LoadableSectionTable<S>,
     symbol_table: &mut ResolvedSymbolTable<'name, S>,
     symbol: &Symbol<'name, S>,
-) -> Result<SymbolIndex, ResolveError>
+) -> Result<SymbolIndex, ResolveError<S>>
 where
     S: SectionIndex,
 {

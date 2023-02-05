@@ -1,5 +1,6 @@
 use super::{section::SectionIndex, SymbolIndex};
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Relocation<S>
 where
     S: SectionIndex,
@@ -14,6 +15,7 @@ where
     pub addend: isize,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum RelocationType {
     PcRelative,
     Absolute,
