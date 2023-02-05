@@ -5,9 +5,8 @@ use thiserror::Error;
 
 pub mod models;
 
-pub fn resolve<'name, S, ST>(
-    section_table: &mut ST,
-    other_section_table: ST,
+pub fn resolve_unloadable_sections<'name, S, ST>(
+    section_table: &ST,
     symbol_table: &mut ResolvedSymbolTable<'name, S>,
     other_symbol_table: SymbolTable<'name, S>,
     relocation_table: &mut Vec<ResolvedRelocation<S>>,
@@ -54,9 +53,6 @@ where
         resolve_symbol(section_table, symbol_table, &symbol)?;
     }
 
-    // Merge section tables
-    section_table.merge(other_section_table);
-
     Ok(())
 }
 
@@ -67,7 +63,7 @@ pub enum ResolveError {
 }
 
 fn resolve_symbol<'name, S>(
-    section_table: &mut impl LoadableSectionTable,
+    section_table: &impl LoadableSectionTable,
     symbol_table: &mut ResolvedSymbolTable<'name, S>,
     symbol: &Symbol<'name, S>,
 ) -> Result<SymbolIndex, ResolveError>
@@ -111,7 +107,7 @@ where
 }
 
 fn update_offset<'name, S>(
-    section_table: &mut impl LoadableSectionTable,
+    section_table: &impl LoadableSectionTable,
     symbol: &Symbol<'name, S>,
 ) -> Symbol<'name, S>
 where
@@ -135,7 +131,7 @@ where
 /// # Panic
 ///
 /// Panics if some symbols in `symbol_table` are not defined
-pub fn relocate<S>(
+pub fn relocate_reference<S>(
     reference: &ResolvedRelocation<S>,
     symbols: &ResolvedSymbolTable<S>,
     new_symbol_section_address: usize,
